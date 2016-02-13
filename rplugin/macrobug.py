@@ -1,4 +1,5 @@
 import neovim
+from time import sleep
 
 @neovim.plugin
 class MacroBug(object):
@@ -18,6 +19,8 @@ class MacroBug(object):
         if self.change_root is None:
             # TODO: don't raise exception, use out_write
             raise Exception('TODO')
+        # TODO in case of exception, unset nomodifiable
+        self.vim.command('setlocal nomodifiable')
         # normal! ignores the mapping the user has set up
         # The V before the pasting is used to avoid the creation of a new line
         #  (is there any better solution?
@@ -52,17 +55,28 @@ class MacroBug(object):
         self.vim.command('let @%c="%s"' % (self.register_key, self.macro))
         self.vim.command('%iwindo q!' % self.winnr)
 
-    @neovim.rpc_export('cursor_move')
-    def on_cursor_move(self):
+    def check_cursor_moved(self):
         if self.current_col == self.last_col:
-            return
+            return False
         self.last_col = self.current_col
+        return True
+
+    def run_macro_chunk(self):
         try:
-            self.vim.current.window = self.target_win
-            self.vim.command('undo %i' % self.change_root, async=True)
             keys = self.vim.replace_termcodes(self.macro[0:self.current_col + 1])
-            self.vim.command('normal! %s' % keys, async=True)
+            self.vim.current.window = self.target_win
+            self.vim.command('setlocal modifiable')
+            self.vim.command('undo %i' % self.change_root)
+            # Important : don't use "normal!" as we want the keymappings
+            self.vim.command('normal %s' % keys)
             self.vim.command('call macrobug#draw_cursor()')
         finally:
+            self.vim.command('setlocal nomodifiable')
+            sleep(0.3)
             self.vim.current.window = self.window
 
+    @neovim.rpc_export('cursor_move')
+    def on_cursor_move(self):
+        if not self.check_cursor_moved():
+            return
+        self.run_macro_chunk()
