@@ -1,5 +1,4 @@
 import neovim
-from time import sleep
 
 @neovim.plugin
 class MacroBug(object):
@@ -68,11 +67,12 @@ class MacroBug(object):
             self.vim.command('setlocal modifiable')
             self.vim.command('undo %i' % self.change_root)
             # Important : don't use "normal!" as we want the keymappings
+            # Also feedkeys is not what we want: it fails
+            # when the user inserts keys in the debugger window.
             self.vim.command('normal %s' % keys)
             self.vim.command('call macrobug#draw_cursor()')
         finally:
             self.vim.command('setlocal nomodifiable')
-            sleep(0.3)
             self.vim.current.window = self.window
 
     @neovim.rpc_export('cursor_move')

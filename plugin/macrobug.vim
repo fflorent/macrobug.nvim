@@ -10,14 +10,14 @@ function! macrobug#draw_cursor()
   endif
   if exists('s:visual_id')
     call matchdelete(s:visual_id)
+    unlet s:visual_id
   endif
   let s:cursor_id = matchadd('macro_bug_cursor', '\%'.pos[1].'l\%'.pos[2].'c', 99999)
   let cur_mode = mode()
   " None of these work. Why?
   if cur_mode ==# 'V'
-    echom 'OK'
-    let s:visual_id = matchadd('macro_bug_visual', '\%>'.(getpos("'<")[1]-1).'l\%<'.(getpos("'>")[1]+1).'l', 99999)
     call s:quit_visual()
+    let s:visual_id = matchadd('macro_bug_visual', '\%>'.(getpos("'<")[1]-1).'l\%<'.(getpos("'>")[1]+1).'l', 99999)
   elseif cur_mode ==# 'v'
     " TODO
     echom "visual"
@@ -28,6 +28,5 @@ endfunction
 
 function s:quit_visual()
   " is there a smarter way to do this?
-  normal
-  echom 'foo'
+  exe "normal \<c-c>"
 endfunction
