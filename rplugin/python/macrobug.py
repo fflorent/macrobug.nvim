@@ -13,9 +13,10 @@ class MacroBug(object):
         self.register_key = register_key
         self.target_win = self.vim.current.window
         # self.target_buf_number = self.vim.current.buffer.number
-        self.change_root = self.vim.eval('undotree()')['seq_last']
+        self.change_root = self.vim.eval('undotree()')['seq_cur']
         if self.change_root is None:
             raise MacroBugException('Cannot find last sequence of the undotree')
+        self.cursor_root = self.target_win.cursor[:]
         self.vim.command('setlocal nomodifiable')
         # normal! ignores the mapping the user has set up
         # The V before the pasting is used to avoid the creation of a new line
@@ -85,6 +86,9 @@ class MacroBug(object):
             self.vim.command('setlocal modifiable')
             # Undo any previous changes made with the debugger.
             self.vim.command('undo %i' % self.change_root)
+            # If no modification occurred previously, we still want to get our
+            # original position if the cursor moved.
+            self.vim.current.window.cursor = self.cursor_root[:]
             # Run the commands.
             # Important : don't use "normal!" as we want the keymappings
             # Also feedkeys is not what we want: it fails
