@@ -10,9 +10,10 @@ It's currently experimental. Several improvements are obviously and code cleanin
 ## Installation
 
 MacroBug requires NeoVim with Python enabled:
+
 1. Make sure you're running NeoVim with Python. Type: `:echo has('python')`. If it returns `1`, go to the next step.
 
- 1.1. Otherwise, run in your shell: `sudo pip install neovim` (global installation) or `pip install --user neovim` (for the current user only). See `:help neovim-python` for more details.
+ 1.1. Otherwise, run in your shell: `sudo pip install neovim` (global installation) or `pip install --user neovim` (for the current user only). See `:help nvim-python` for more details.
 
 2. Add this line in your `init.vim` file If you're using NeoBundle (or Vundle, Plug, ...) to install the plugin this way: `NeoBundle 'fflorent/macrobug.vim'`
 
@@ -29,7 +30,15 @@ Note: `=` is not supported yet.
 ### Saving the Macro
 Run: `:MacroSave`
 
-Note: this also closes the debugger window (bad but assumed choice)... This will hopefully be improved pretty soon.
+### Quiting
+Run: `:MacroQuit`.
+
+Also if you have the focus on the debugger window, you may also simple run : `:q`.
+
+## TODO
+1. Code cleanup... (currently you may catch tetanus if you read it)
+2. Doc (for `:help`)
+3. Unit tests (how?)
 
 # License
 

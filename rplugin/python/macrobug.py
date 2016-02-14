@@ -33,10 +33,16 @@ class MacroBug(object):
         self.window.height = 2
         self.last_col = self.current_col
         # Cannot register to keypress event yet, do some workaround here.
-        self.vim.command('setlocal ut=500')
+        self.vim.command('setlocal ut=500', async=True)
+        self.vim.command('setlocal buftype=nofile|setlocal noswapfile')
         self.vim.command(('autocmd CursorMoved,CursorHoldI <buffer=%d> ' +
-                          ':call rpcnotify(%d, "cursor_move")') %
-                         (self.buffer.number, self.vim.channel_id))
+                         ':call rpcnotify(%d, "macrobug:cursor_move")') %
+                         (self.buffer.number, self.vim.channel_id),
+                         async=True)
+        self.vim.command(('autocmd QuitPre <buffer=%d> ' +
+                         ':call rpcnotify(%d, "macrobug:onquit")') %
+                         (self.buffer.number, self.vim.channel_id),
+                         async=True)
 
     @property
     def current_col(self):
@@ -52,6 +58,12 @@ class MacroBug(object):
             # TODO don't raise exception
             raise Exception('TODO')
         self.vim.command('let @%c="%s"' % (self.register_key, self.macro))
+        self.vim.command('%iwindo w' % self.winnr)
+
+    @neovim.command('MacroQuit')
+    def quit(self):
+        if not self.window or not self.window.valid:
+            return
         self.vim.command('%iwindo q!' % self.winnr)
 
     def check_cursor_moved(self):
@@ -70,12 +82,25 @@ class MacroBug(object):
             # Also feedkeys is not what we want: it fails
             # when the user inserts keys in the debugger window.
             self.vim.command('normal %s' % keys)
-            self.vim.command('call macrobug#draw_cursor()')
+            self.vim.command('call macrobug#draw_cursor_and_visual()')
         finally:
             self.vim.command('setlocal nomodifiable')
             self.vim.current.window = self.window
 
-    @neovim.rpc_export('cursor_move')
+    @neovim.rpc_export('macrobug:onquit')
+    def onquit(self):
+        if self.window or self.window.valid:
+            return
+        if not self.target_win or not self.target_win.valid:
+            return
+        focused_win = self.vim.current.window
+        self.vim.current.window = self.target_win
+        self.vim.command('setlocal modifiable')
+        self.vim.command('undo %i' % self.change_root)
+        self.vim.command('call macrobug#unset_cursor_and_visual()')
+        self.vim.current.window = focused_win
+
+    @neovim.rpc_export('macrobug:cursor_move')
     def on_cursor_move(self):
         if not self.check_cursor_moved():
             return

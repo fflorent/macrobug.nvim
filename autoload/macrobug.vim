@@ -3,7 +3,11 @@
 " Thanks a lot to this guy and all of the contributors for
 " this amazing script!
 
-" TODO support highlight overriding
+if !has('python') && !has('python3')
+  echo 'MacroBug needs python support. See :help nvim-python'
+  finish
+endif
+
 let s:hi_cursor = 'macro_bug_cursor'
 let s:hi_visual = 'macro_bug_visual'
 let s:cursor_priority = 99999
