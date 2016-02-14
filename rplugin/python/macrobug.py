@@ -22,8 +22,6 @@ class MacroBug(object):
         #  (is there any better solution?
         #   self.vim.eval doesn't seem to work currently)
         self.vim.command('new +normal!\\ V"%cp0' % register_key)
-        self.vim.command('setlocal buftype=nofile|setlocal noswapfile',
-                         async=True)
         self.buffer = self.vim.current.buffer
         if len(self.buffer) > 1:
             raise MacroBugException('Unexpected carriage return in macro')
@@ -33,12 +31,13 @@ class MacroBug(object):
         self.last_col = self.current_col
         # Cannot register to keypress event yet, do some workaround here.
         self.vim.command('setlocal ut=500', async=True)
+        self.vim.command('setlocal noswapfile', async=True)
         self.vim.command(('autocmd CursorMoved,CursorHoldI <buffer=%d> ' +
-                          ':call rpcnotify(%d, "macrobug:cursor_move")') %
+                          ':call rpcnotify(%d, "macrobug:cursormove")') %
                          (self.buffer.number, self.vim.channel_id),
                          async=True)
-        self.vim.command(('autocmd QuitPre <buffer=%d> ' +
-                          ':call rpcnotify(%d, "macrobug:onquit")') %
+        self.vim.command(('autocmd BufUnload <buffer=%d> ' +
+                          ':call rpcnotify(%d, "macrobug:quit")') %
                          (self.buffer.number, self.vim.channel_id),
                          async=True)
         self.vim.command('inoremap <buffer> <cr> <lt>cr>', async=True)
@@ -97,7 +96,7 @@ class MacroBug(object):
             self.vim.command('setlocal nomodifiable')
             self.vim.current.window = self.window
 
-    def onquit(self):
+    def on_quit(self):
         ''' Handle when the debugger window has just been closed. '''
         if self.window and self.window.valid:
             return
@@ -135,7 +134,7 @@ class Plugin(object):
             if self.instance.window and self.instance.window.valid:
                 self.quit()
             else:
-                self.onquit()
+                self.on_quit()
 
     def _echo_error(self, err):
         ''' Display an error '''
@@ -157,13 +156,13 @@ class Plugin(object):
         ''' Handle MacroQuit '''
         self.instance.quit()
 
-    @neovim.rpc_export('macrobug:onquit')
-    def onquit(self):
+    @neovim.rpc_export('macrobug:quit')
+    def on_quit(self):
         ''' Handle when the debugger window has just been closed. '''
-        self.instance.onquit()
+        self.instance.on_quit()
         self.instance = None
 
-    @neovim.rpc_export('macrobug:cursor_move')
+    @neovim.rpc_export('macrobug:cursormove')
     def on_cursor_move(self):
         ''' Handle when the cursor moved '''
         if not self.instance.check_cursor_moved():

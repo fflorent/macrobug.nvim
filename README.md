@@ -30,7 +30,7 @@ Run: `:MacroSave`
 ### Quiting
 Run: `:MacroQuit`.
 
-Also if you have the focus on the debugger window, you may also simple run : `:q`.
+Also if you have the focus on the debugger window, you may also simple run : `:q!`.
 
 ## TODO
 1. Doc (for `:help`)
