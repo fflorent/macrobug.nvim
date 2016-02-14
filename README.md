@@ -4,9 +4,6 @@ MacroBug is a step-by-step debugger for [NeoVim](https://github.com/neovim/neovi
 * Navigate through your macro, execute it step-by-step and go backward to identify the culprit command
 * Edit and save the modifications in your macro
 
-## Project status
-It's currently experimental. Several improvements are obviously and code cleaning expected.
-
 ## Installation
 
 MacroBug requires NeoVim with Python enabled:
@@ -36,9 +33,8 @@ Run: `:MacroQuit`.
 Also if you have the focus on the debugger window, you may also simple run : `:q`.
 
 ## TODO
-1. Code cleanup... (currently you may catch tetanus if you read it)
-2. Doc (for `:help`)
-3. Unit tests (how?)
+1. Doc (for `:help`)
+2. Unit tests (how?)
 
 # License
 

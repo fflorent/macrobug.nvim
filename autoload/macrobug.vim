@@ -24,7 +24,6 @@ function! macrobug#draw_cursor_and_visual()
   let pos = getpos('.')
   let s:cursor_id = matchadd(s:hi_cursor, '\%'.pos[1].'l\%'.pos[2].'c', s:cursor_priority)
   let cur_mode = mode()
-  " None of these work. Why?
   if cur_mode ==# 'V' || cur_mode ==# 'v' || cur_mode ==# "\<c-v>"
     call s:quit_visual()
     call s:draw_visual(cur_mode)
