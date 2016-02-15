@@ -58,7 +58,7 @@ class MacroBug(object):
         ''' Handle MacroSave '''
         if not self.window.valid:
             raise MacroBugException('Cannot access debugger window')
-        self.vim.command('let @%c="%s"' % (self.register_key, self.macro))
+        self.vim.command('let @%c="%s"' % (self.register_key, self.macro.replace('"', '\\"')))
         self.vim.command('%iwindo w' % self.winnr)
 
     def quit(self):
