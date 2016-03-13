@@ -27,13 +27,11 @@ class MacroBug(object):
         if len(self.buffer) > 1:
             raise MacroBugException('Unexpected carriage return in macro')
         self.window = self.vim.current.window
-        self.winnr = self.vim.eval('winnr()')
         self.window.height = 2
         self.last_col = self.current_col
-        # Cannot register to keypress event yet, do some workaround here.
-        self.vim.command('setlocal ut=500', async=True)
         self.vim.command('setlocal noswapfile', async=True)
-        self.vim.command(('autocmd CursorMoved,CursorHoldI <buffer=%d> ' +
+        # Cannot register to keypress event yet, do some workaround here.
+        self.vim.command(('autocmd CursorMoved,CursorMovedI <buffer=%d> ' +
                           ':call rpcnotify(%d, "macrobug:cursormove")') %
                          (self.buffer.number, self.vim.channel_id),
                          async=True)
@@ -54,18 +52,27 @@ class MacroBug(object):
         ''' The content of the macro (should be in a single line '''
         return self.buffer[0]
 
+    @property
+    def winnr(self):
+        ''' The debugger window number '''
+        return self.vim.eval('bufwinnr(%i)' % self.window.buffer.number)
+
+    @property
+    def target_winnr(self):
+        ''' The target (debuggee) window number '''
+        return self.vim.eval('bufwinnr(%i)' % self.target_win.buffer.number)
+
     def save_register(self):
         ''' Handle MacroSave '''
         if not self.window.valid:
             raise MacroBugException('Cannot access debugger window')
         self.vim.command('let @%c="%s"' % (self.register_key, self.macro.replace('"', '\\"')))
-        self.vim.command('%iwindo w' % self.winnr)
 
     def quit(self):
         ''' Handle MacroQuit '''
         if not self.window or not self.window.valid:
             return
-        self.vim.command('%iwindo q!' % self.winnr)
+        self.vim.command('%iwindo q!' % self.target_winnr)
 
     def check_cursor_moved(self):
         ''' Check whether the cursor moved or not (in normal or insert mode) '''
@@ -76,29 +83,20 @@ class MacroBug(object):
 
     def run_macro_chunk(self):
         ''' Run the Macro until the position of the cursor. '''
-        try:
-            # Get the keys from the beginning to the cursor
-            keys_to = self.current_col + 1
-            keys = self.vim.replace_termcodes(self.macro[0:keys_to])
-            # Run the following commands in the context of the debuggee window
-            self.vim.current.window = self.target_win
-            # Make the latter modifiable
-            self.vim.command('setlocal modifiable')
-            # Undo any previous changes made with the debugger.
-            self.vim.command('undo %i' % self.change_root)
-            # If no modification occurred previously, we still want to get our
-            # original position if the cursor moved.
-            self.vim.current.window.cursor = self.cursor_root[:]
-            # Run the commands.
-            # Important : don't use "normal!" as we want the keymappings
-            # Also feedkeys is not what we want: it fails
-            # when the user inserts keys in the debugger window.
-            self.vim.command('normal %s' % keys)
-            self.vim.command('call macrobug#draw_cursor_and_visual()')
-        finally:
-            # Reset the window unmodifiable and focus the debugger window
-            self.vim.command('setlocal nomodifiable')
-            self.vim.current.window = self.window
+        # Get the keys from the beginning to the cursor
+        keys_to = self.current_col + 1
+        keys = self.vim.replace_termcodes(self.macro[0:keys_to])
+        escaped_keys = keys.replace('"', '\\"')
+        self.target_win.cursor = self.cursor_root[:]
+
+        self.vim.command(('''call macrobug#execute_macro_chunk({
+                'target_winnr': %d,
+                'winnr': %d,
+                'change_root': %d,
+                'cursor_root': %s,
+                'keys': "%s"
+            })''' % (self.target_winnr, self.winnr, self.change_root,
+                     self.cursor_root, escaped_keys)).replace('\n', ' '))
 
     def on_quit(self):
         ''' Handle when the debugger window has just been closed. '''
@@ -135,7 +133,9 @@ class Plugin(object):
             self.instance = MacroBug(self.vim, args[0])
         except MacroBugException as exc:
             self._echo_error(exc)
-            if self.instance.window and self.instance.window.valid:
+            if not self.instance:
+                return
+            elif self.instance.window and self.instance.window.valid:
                 self.quit()
             else:
                 self.on_quit()

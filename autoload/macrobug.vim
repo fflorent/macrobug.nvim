@@ -19,6 +19,22 @@ if !hlexists(s:hi_visual)
   exe 'hi link '.s:hi_visual.' Visual'
 endif
 
+function! macrobug#execute_macro_chunk(arguments)
+  execute a:arguments.target_winnr . "wincmd w"
+  setlocal modifiable
+  execute "undo " . a:arguments.change_root
+  call cursor(a:arguments.cursor_root[0], a:arguments.cursor_root[1])
+
+  try
+    execute "normal " . a:arguments.keys
+    call macrobug#draw_cursor_and_visual()
+  finally
+    setlocal nomodifiable
+    execute a:arguments.winnr . "wincmd w"
+  endtry
+
+endfunction
+
 function! macrobug#draw_cursor_and_visual()
   call macrobug#unset_cursor_and_visual()
   let pos = getpos('.')
@@ -81,8 +97,4 @@ function! s:draw_visual(mode)
           \ (vposend[1] + 1))
     let s:visual_ids = add(s:visual_ids, matchadd(s:hi_visual, last_line_pattern, s:visual_priority))
   endif
-endfunction
-
-function! macrobug#test()
-  call s:draw_visual(visualmode())
 endfunction
