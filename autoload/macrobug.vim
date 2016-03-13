@@ -28,6 +28,7 @@ function! macrobug#execute_macro_chunk(arguments)
   try
     execute "normal " . a:arguments.keys
     call macrobug#draw_cursor_and_visual()
+  catch
   finally
     setlocal nomodifiable
     execute a:arguments.winnr . "wincmd w"
