@@ -2,6 +2,32 @@
 
 import neovim
 
+class State(object):
+    ''' Represents a state for cursor root positions and change root '''
+    def __init__(self, change_root, cursor_root):
+        self.change_root = change_root
+        self.cursor_root = cursor_root
+
+class StateStack(object):
+    ''' Stack for undo sequence and cursor position states '''
+
+    def __init__(self, state):
+        self._list = [state]
+
+    def push(self, state):
+        ''' Add a new state after the current index '''
+        self._list.append(state)
+
+    def pop(self):
+        ''' Remove and return last state '''
+        if len(self._list) > 1:
+            self._list.pop()
+
+    @property
+    def current(self):
+        ''' Return current state (i.e. the last in the stack '''
+        return self._list[-1]
+
 class MacroBug(object):
     ''' Instance of the Debugger '''
     def __init__(self, vim, register_key):
@@ -12,11 +38,10 @@ class MacroBug(object):
                                     ' See :help register')
         self.register_key = register_key
         self.target_win = self.vim.current.window
-        # self.target_buf_number = self.vim.current.buffer.number
-        self.change_root = self.vim.eval('undotree()')['seq_cur']
-        if self.change_root is None:
-            raise MacroBugException('Cannot find last sequence of the undotree')
-        self.cursor_root = self.target_win.cursor[:]
+
+        state = State(self._get_change_root(), self.target_win.cursor[:])
+        self.states = StateStack(state)
+
         self.vim.command('setlocal nomodifiable')
         # normal! ignores the mapping the user has set up
         # The V before the pasting is used to avoid the creation of a new line
@@ -39,8 +64,30 @@ class MacroBug(object):
                           ':call rpcnotify(%d, "macrobug:quit")') %
                          (self.buffer.number, self.vim.channel_id),
                          async=True)
-        self.vim.command('inoremap <buffer> <cr> <lt>cr>', async=True)
+        self.vim.command('inoremap <silent><buffer> <cr> <lt>cr>', async=True)
+
+        self.vim.command('nnoremap <silent><buffer> < :MacroStepBackward<cr>', async=True)
+        self.vim.command('nnoremap <silent><buffer> > :MacroStepForward<cr>', async=True)
         self.vim.command('call macrobug:draw_cursor_and_visual()', async=True)
+
+    def _escape_keys(self, keys):
+        return self.vim.replace_termcodes(keys).replace('"', '\\"')
+
+    def _get_change_root(self):
+        change_root = self.vim.eval('undotree()["seq_cur"]')
+        if change_root is None:
+            raise MacroBugException('Cannot find last sequence of the undotree')
+        return change_root
+
+    @property
+    def change_root(self):
+        ''' Get the undo sequence from which we start running the macro '''
+        return self.states.current.change_root
+
+    @property
+    def cursor_root(self):
+        ''' Get the cursor position from which we start running the macro '''
+        return self.states.current.cursor_root
 
     @property
     def current_col(self):
@@ -85,11 +132,15 @@ class MacroBug(object):
         ''' Run the Macro until the position of the cursor. '''
         # Get the keys from the beginning to the cursor
         keys_to = self.current_col + 1
-        keys = self.vim.replace_termcodes(self.macro[0:keys_to])
-        escaped_keys = keys.replace('"', '\\"')
-        self.target_win.cursor = self.cursor_root[:]
+        self.run_macro_to_pos(keys_to)
 
-        self.vim.command(('''call macrobug#execute_macro_chunk({
+    def run_macro_to_pos(self, keys_to):
+        ''' Run the macro to character position (keys_to) '''
+        escaped_keys = self._escape_keys(self.macro[0:keys_to])
+        self.target_win.cursor = self.cursor_root[:]
+        self.vim.command('echom "%s"' % self.change_root)
+
+        return self.vim.eval(('''macrobug#execute_macro_chunk({
                 'target_winnr': %d,
                 'winnr': %d,
                 'change_root': %d,
@@ -97,6 +148,18 @@ class MacroBug(object):
                 'keys': "%s"
             })''' % (self.target_winnr, self.winnr, self.change_root,
                      self.cursor_root, escaped_keys)).replace('\n', ' '))
+
+    def step_forward(self):
+        ''' Run the macro once to step forward '''
+        res = self.run_macro_to_pos(len(self.macro))
+
+        self.states.push(State(res['undotree_seq_cur'], res['cursor_pos']))
+
+    def step_backward(self):
+        ''' Undo last macro execution to step backward '''
+        self.states.pop()
+        self.vim.eval(('macrobug#apply_state(%d, %d, %s)')
+                      % (self.target_winnr, self.change_root, self.cursor_root))
 
     def on_quit(self):
         ''' Handle when the debugger window has just been closed. '''
@@ -124,7 +187,7 @@ class Plugin(object):
 
     @neovim.command('MacroBug', nargs='1')
     def start_macro_bug(self, args):
-        ''' Handle MacroBug command '''
+        ''' Handle :MacroBug command '''
         if self.instance:
             self._echo_error('MacroBug debugger instance already open!')
             return
@@ -149,7 +212,7 @@ class Plugin(object):
 
     @neovim.command('MacroSave')
     def save_register(self):
-        ''' Handle MacroSave '''
+        ''' Handle :MacroSave '''
         try:
             self.instance.save_register()
         except MacroBugException as exc:
@@ -157,8 +220,27 @@ class Plugin(object):
 
     @neovim.command('MacroQuit')
     def quit(self):
-        ''' Handle MacroQuit '''
+        ''' Handle :MacroQuit '''
+        if not self.instance:
+            self._echo_error('MacroBug is not open')
+            return
         self.instance.quit()
+
+    @neovim.command('MacroStepForward')
+    def step_forward(self):
+        ''' Handle :MacroStepForward '''
+        if not self.instance:
+            self._echo_error('MacroBug is not open')
+            return
+        self.instance.step_forward()
+
+    @neovim.command('MacroStepBackward')
+    def step_backward(self):
+        ''' Handle :MacroStepBackward '''
+        if not self.instance:
+            self._echo_error('MacroBug is not open')
+            return
+        self.instance.step_backward()
 
     @neovim.rpc_export('macrobug:quit')
     def on_quit(self):

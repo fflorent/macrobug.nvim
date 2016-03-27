@@ -32,6 +32,16 @@ Run: `:MacroQuit`.
 
 Also if you have the focus on the debugger window, you may also simple run : `:q!`.
 
+### Step forward
+Run: `:MacroStepForward` or press `>`.
+
+This will apply the content of the macro once.
+
+### Step backward
+Run: `:MacroStepBackward` or press `<`.
+
+This will unapply last `:MacroStepForward` execution.
+
 ## TODO
 1. Doc (for `:help`)
 2. Unit tests (how?)

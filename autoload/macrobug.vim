@@ -19,11 +19,16 @@ if !hlexists(s:hi_visual)
   exe 'hi link '.s:hi_visual.' Visual'
 endif
 
+function! s:apply_state(change_root, cursor_root)
+  execute "silent undo " . a:change_root
+  call cursor(a:cursor_root[0], a:cursor_root[1])
+endfunction
+
 function! macrobug#execute_macro_chunk(arguments)
   execute a:arguments.target_winnr . "wincmd w"
   setlocal modifiable
-  execute "undo " . a:arguments.change_root
-  call cursor(a:arguments.cursor_root[0], a:arguments.cursor_root[1])
+
+  call s:apply_state(a:arguments.change_root, a:arguments.cursor_root)
 
   try
     execute "normal " . a:arguments.keys
@@ -31,10 +36,21 @@ function! macrobug#execute_macro_chunk(arguments)
   catch
   finally
     setlocal nomodifiable
+    let undotree_seq_cur = undotree()['seq_cur']
+    let cursor_pos = getpos('.')
     execute a:arguments.winnr . "wincmd w"
   endtry
-
+  return { 'undotree_seq_cur': undotree_seq_cur, 'cursor_pos': cursor_pos[1:2] }
 endfunction
+
+function! macrobug#apply_state(target_winnr, change_root, cursor_root)
+  let orig_win = winnr()
+  execute a:target_winnr . "wincmd w"
+  call s:apply_state(a:change_root, a:cursor_root)
+  call macrobug#draw_cursor_and_visual()
+  execute orig_win . "wincmd w"
+endfunction
+
 
 function! macrobug#draw_cursor_and_visual()
   call macrobug#unset_cursor_and_visual()
