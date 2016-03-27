@@ -72,7 +72,7 @@ class MacroBug(object):
         ''' Handle MacroQuit '''
         if not self.window or not self.window.valid:
             return
-        self.vim.command('%iwindo q!' % self.target_winnr)
+        self.vim.command('%iwindo q!' % self.winnr)
 
     def check_cursor_moved(self):
         ''' Check whether the cursor moved or not (in normal or insert mode) '''
