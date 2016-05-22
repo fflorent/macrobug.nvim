@@ -43,6 +43,20 @@ function! macrobug#execute_macro_chunk(arguments)
   return { 'undotree_seq_cur': undotree_seq_cur, 'cursor_pos': cursor_pos[1:2] }
 endfunction
 
+function! macrobug#map_keys()
+  if !exists('g:macrobug_step_forward')
+    let g:macrobug_step_forward = '>'
+  endif
+  if !exists('g:macrobug_step_backward')
+    let g:macrobug_step_backward = '<'
+  endif
+  exe 'nnoremap <silent><buffer> '.g:macrobug_step_backward.
+    \ ' :MacroStepBackward<cr>'
+  exe 'nnoremap <silent><buffer> '.g:macrobug_step_forward.
+    \ ' :MacroStepForward<cr>'
+endfunction
+
+
 function! macrobug#apply_state(target_winnr, change_root, cursor_root)
   let orig_win = winnr()
   execute a:target_winnr . "wincmd w"

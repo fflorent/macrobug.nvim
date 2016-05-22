@@ -42,6 +42,8 @@ class MacroBug(object):
         state = State(self._get_change_root(), self.target_win.cursor[:])
         self.states = StateStack(state)
 
+        self.vim.call('macrobug#draw_cursor_and_visual')
+
         self.vim.command('setlocal nomodifiable')
         # normal! ignores the mapping the user has set up
         # The V before the pasting is used to avoid the creation of a new line
@@ -66,9 +68,7 @@ class MacroBug(object):
                          async=True)
         self.vim.command('inoremap <silent><buffer> <cr> <lt>cr>', async=True)
 
-        self.vim.command('nnoremap <silent><buffer> < :MacroStepBackward<cr>', async=True)
-        self.vim.command('nnoremap <silent><buffer> > :MacroStepForward<cr>', async=True)
-        self.vim.command('call macrobug:draw_cursor_and_visual()', async=True)
+        self.vim.call('macrobug#map_keys')
 
     def _escape_keys(self, keys):
         return self.vim.replace_termcodes(keys).replace('"', '\\"')
@@ -76,7 +76,7 @@ class MacroBug(object):
     def _get_change_root(self):
         change_root = self.vim.eval('undotree()["seq_cur"]')
         if change_root is None:
-            raise MacroBugException('Cannot find last sequence of the undotree')
+            raise MacroBugException('Cannot find current sequence of the undotree')
         return change_root
 
     @property
@@ -173,6 +173,7 @@ class MacroBug(object):
         self.vim.command('undo %i' % self.change_root)
         self.vim.command('call macrobug#unset_cursor_and_visual()')
         self.vim.current.window = focused_win
+        self.states = None
 
 class MacroBugException(Exception):
     ''' MacroBug exception '''
